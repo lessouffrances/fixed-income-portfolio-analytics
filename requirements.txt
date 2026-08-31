@@ -2,6 +2,9 @@ pandas>=2.1
 SQLAlchemy>=2.0
 psycopg[binary]>=3.1
 python-dotenv>=1.0
+# Only used to read the RDS master password from Secrets Manager on the deployed
+# instance. Imported lazily, so local development and the test suite run without it.
+boto3>=1.34
 dash>=2.17
 plotly>=5.22
 pytest>=8.0

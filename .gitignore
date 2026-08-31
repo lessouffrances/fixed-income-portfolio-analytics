@@ -139,12 +139,17 @@ env.bak/
 venv.bak/
 
 # Credentials — the assignment forbids any credential in the repository.
-# Aiven issues a CA certificate for TLS connections; it must stay local.
+# The RDS CA bundle (global-bundle.pem) is fetched at deploy time for
+# sslmode=verify-full and is never committed.
 *.pem
 *.key
 *.crt
-aiven-ca.pem
+rds-ca-*.pem
+global-bundle.pem
 secrets.json
+
+# AWS CLI / SDK local state
+.aws/
 
 # macOS
 .DS_Store

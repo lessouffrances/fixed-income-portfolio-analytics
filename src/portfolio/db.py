@@ -24,11 +24,14 @@ def make_engine(settings: Settings | None = None, *, url: str | None = None) -> 
         pool_kwargs = dict(
             pool_size=settings.pool_size,
             max_overflow=settings.max_overflow,
-            # Aiven closes idle connections server-side. Recycling below that
-            # window avoids handing the app a socket the server has already
-            # dropped, which otherwise appears as a random failure after a quiet
-            # period rather than as a connection problem.
-            pool_recycle=280,
+            # Recycle connections before any intermediary can silently drop them.
+            # RDS does not aggressively close idle sessions, but a NAT gateway or
+            # load balancer in the path will, and a dead socket handed back from
+            # the pool presents as a random failure after a quiet period rather
+            # than as a connection problem.
+            pool_recycle=settings.pool_recycle,
+            # The actual safety net: validate a connection before handing it out.
+            # Cheap next to the cost of a failed page render.
             pool_pre_ping=True,
         )
     else:
