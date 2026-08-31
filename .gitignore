@@ -129,12 +129,25 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Credentials — the assignment forbids any credential in the repository.
+# Aiven issues a CA certificate for TLS connections; it must stay local.
+*.pem
+*.key
+*.crt
+aiven-ca.pem
+secrets.json
+
+# macOS
+.DS_Store
 
 # Spyder project settings
 .spyderproject
