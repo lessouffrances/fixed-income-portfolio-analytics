@@ -742,24 +742,42 @@ def clean_holdings(
         & (out["as_of_date"] > out["_maturity"])
         & out["par_amount"].fillna(0).ne(0)
     )
+    # Recorded as a column, not just a finding: the analytics layer excludes these
+    # rows from market-value aggregates, and doing that from a flag on the row
+    # keeps the exclusion visible and reversible rather than hardcoded in a query.
+    out["post_maturity"] = post
     for _, r in out[post].iterrows():
+        mv = r["market_value"]
         findings.append(
             Finding(
                 rule_code="HL009",
-                rule_title="Position held after maturity date",
-                severity=Severity.WARNING,
+                rule_title="Position reported after the security matured",
+                # ERROR, not WARNING: a redeemed bond cannot have market value, so
+                # this is fabricated value rather than a merely suspicious number.
+                # Left in the table for audit but excluded from every market-value
+                # aggregate, because including it overstates the portfolio and
+                # manufactures phantom trading activity in the month it reappears.
+                severity=Severity.ERROR,
                 action=Action.FLAGGED,
                 source_table=table,
                 key={
                     "security_id": r["security_id"],
                     "as_of_date": str(r["as_of_date"].date()),
                 },
+                column="par_amount",
+                observed=r["par_amount"],
                 message=(
-                    f"Non-zero par at {r['as_of_date'].date()} but the security matured on "
-                    f"{pd.Timestamp(r['_maturity']).date()}. A matured bond should redeem to "
-                    "zero par; retained and flagged."
+                    f"Non-zero par ({r['par_amount']:,.0f}) at {r['as_of_date'].date()}, but "
+                    f"the security matured on {pd.Timestamp(r['_maturity']).date()}. A matured "
+                    f"bond redeems to zero par, so the "
+                    f"{'' if pd.isna(mv) else f'{mv:,.2f} of '}market value reported here does "
+                    "not exist. The row is retained for audit and flagged post_maturity; it is "
+                    "excluded from portfolio market value, allocation and attribution."
                 ),
-                context={"maturity_date": str(pd.Timestamp(r["_maturity"]).date())},
+                context={
+                    "maturity_date": str(pd.Timestamp(r["_maturity"]).date()),
+                    "excluded_market_value": None if pd.isna(mv) else float(mv),
+                },
             )
         )
 
