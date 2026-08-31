@@ -12,11 +12,15 @@ database, which is a deployment step rather than a unit test.
 
 from __future__ import annotations
 
+import json
+import sys
+import types
+
 import pandas as pd
 import pytest
 from sqlalchemy import func, select
 
-from portfolio.config import ConfigError, Settings, redact
+from portfolio.config import ConfigError, Settings, redact, resolve_database_url
 from portfolio.db import create_schema, healthcheck, make_engine
 from portfolio.load import loader as loader_mod
 from portfolio.load.loader import read_csvs, run_load
@@ -295,20 +299,83 @@ def test_latest_load_id_ignores_failed_loads(engine, csv_dir, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_missing_database_url_fails_loudly(monkeypatch):
+RDS_HOST = "fixed-income-db.abc123.us-east-1.rds.amazonaws.com"
+
+
+def test_no_database_configuration_fails_loudly(monkeypatch):
     """No default and no fallback connection string: the assignment forbids
     credentials in the repo, so there must be nothing to fall back to."""
-    monkeypatch.setenv("DATABASE_URL", "")
-    with pytest.raises(ConfigError, match="DATABASE_URL"):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("DB_SECRET_ARN", raising=False)
+    with pytest.raises(ConfigError, match="No database configuration"):
         Settings.from_env()
+
+
+def test_database_url_takes_precedence_over_the_secret(monkeypatch):
+    """Documented precedence. A stale DB_SECRET_ARN left in the environment must
+    not silently override an explicit local URL."""
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///explicit.db")
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:unused")
+    assert resolve_database_url() == "sqlite:///explicit.db"
+
+
+def test_secret_arn_without_a_host_is_rejected(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
+    monkeypatch.delenv("DB_HOST", raising=False)
+    with pytest.raises(ConfigError, match="DB_HOST"):
+        resolve_database_url()
+
+
+def test_url_assembled_from_an_rds_managed_secret(monkeypatch):
+    """RDS generates the master password, so it can contain URL metacharacters.
+    Unquoted, an '@' or '/' silently corrupts the host or database name."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
+    monkeypatch.setenv("DB_HOST", RDS_HOST)
+    monkeypatch.setenv("DB_NAME", "portfolio")
+
+    fake_secret = json.dumps({"username": "dbadmin", "password": "p@ss/w:rd"})
+
+    class FakeClient:
+        def get_secret_value(self, SecretId):  # noqa: N803 — boto3's own signature
+            assert SecretId == "arn:aws:secretsmanager:::secret:rds!db-1"
+            return {"SecretString": fake_secret}
+
+    fake_boto3 = types.SimpleNamespace(client=lambda _svc: FakeClient())
+    monkeypatch.setitem(sys.modules, "boto3", fake_boto3)
+
+    url = resolve_database_url()
+    assert url == (
+        "postgresql+psycopg://dbadmin:p%40ss%2Fw%3Ard"
+        f"@{RDS_HOST}:5432/portfolio?sslmode=require"
+    )
+    # The raw password must not survive into the URL unescaped.
+    assert "p@ss/w:rd" not in url
+
+
+def test_a_malformed_secret_is_reported_as_configuration(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
+    monkeypatch.setenv("DB_HOST", RDS_HOST)
+
+    class FakeClient:
+        def get_secret_value(self, SecretId):  # noqa: N803
+            return {"SecretString": json.dumps({"user": "wrong-key"})}
+
+    monkeypatch.setitem(
+        sys.modules, "boto3", types.SimpleNamespace(client=lambda _svc: FakeClient())
+    )
+    with pytest.raises(ConfigError, match="RDS-managed credential"):
+        resolve_database_url()
 
 
 @pytest.mark.parametrize(
     "url,expected",
     [
         (
-            "postgresql+psycopg://avnadmin:sup3rs3cret@pg-x.aivencloud.com:12345/defaultdb",
-            "postgresql+psycopg://avnadmin:***@pg-x.aivencloud.com:12345/defaultdb",
+            f"postgresql+psycopg://dbadmin:sup3rs3cret@{RDS_HOST}:5432/portfolio",
+            f"postgresql+psycopg://dbadmin:***@{RDS_HOST}:5432/portfolio",
         ),
         ("sqlite:///local.db", "sqlite:///local.db"),
         ("postgresql://nopassword@host:5432/db", "postgresql://nopassword@host:5432/db"),
