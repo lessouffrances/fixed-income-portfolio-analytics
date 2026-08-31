@@ -1,0 +1,81 @@
+security_id,description,issuer,sector,rating,coupon_pct,issue_date,maturity_date,asset_class
+SFWOSNOWG,US Treasury 2.163% 08/28/2027,US Treasury,Treasury,AAA,2.163,2018-01-19,2027-08-28,Government
+70PTTP6WP,US Treasury 2.827% 10/19/2031,US Treasury,Treasury,AAA,2.827,2015-06-06,2031-10-19,Government
+1060VXN0Z,US Treasury 4.429% 07/05/2035,US Treasury,Treasury,AAA,4.429,2018-08-13,2035-07-05,Government
+AMZ82XUGQ,US Treasury 6.542% 09/21/2041,US Treasury,Treasury,AAA,6.542,2022-02-15,2041-09-21,Government
+3QHXPR1U3,US Treasury 5.404% 07/03/2026,US Treasury,Treasury,AAA,5.404,2017-03-28,2026-07-03,Government
+Z0P1QUO3L,US Treasury 4.742% 12/16/2037,US Treasury,Treasury,AAA,4.742,2020-02-02,2037-12-16,Government
+516Y1ZY06,US Treasury 3.829% 04/19/2034,US Treasury,Treasury,AAA,3.829,2018-03-16,2034-04-19,Government
+JL7ZH6V32,US Treasury 6.368% 10/24/2034,US Treasury,Treasury,AAA,6.368,2022-04-02,2034-10-24,Government
+Q14AFA9CM,Harborview Capital 6.377% 09/24/2034,Harborview Capital,Financials,A,6.377,2015-01-22,2034-09-24,Corporate
+IQ9KFUKG1,Crestline Insurance 6.917% 12/18/2025,Crestline Insurance,Financials,BB,6.917,2018-06-07,2025-12-18,Corporate
+UDV04Q028,Meridian Bancorp 5.417% 10/22/2029,Meridian Bancorp,Financials,BB,5.417,2020-01-22,2029-10-22,Corporate
+M851Y65ZE,Meridian Bancorp 4.374% 05/17/2037,Meridian Bancorp,Financials,B,4.374,2017-10-22,2037-05-17,Corporate
+1AMUISU25,Crestline Insurance 3.014% 04/08/2027,Crestline Insurance,Financials,BBB,3.014,2015-05-19,2027-04-08,Corporate
+FH5KSL4JL,Northgate Financial 3.544% 07/06/2036,Northgate Financial,Financials,AA,3.544,2022-03-18,2036-07-06,Corporate
+H35A0KKW1,Meridian Bancorp 2.248% 11/24/2030,Meridian Bancorp,Financials,AA,2.248,2017-06-26,2030-11-24,Corporate
+A0ETNRG33,Meridian Bancorp 6.027% 07/07/2034,Meridian Bancorp,Financials,B,6.027,2016-04-21,2034-07-07,Corporate
+J723UFW32,Crestline Insurance 4.578% 11/10/2025,Crestline Insurance,Financials,BBB,4.578,2017-07-26,2025-11-10,Corporate
+F5ZXP22RK,Crestline Insurance 4.082% 03/16/2026,Crestline Insurance,Financials,BBB,4.082,2021-06-14,2026-03-16,Corporate
+0X3DQ57DL,Meridian Bancorp 6.756% 08/20/2031,Meridian Bancorp,Financials,BBB,6.756,2024-01-14,2031-08-20,Corporate
+BU1B58UOJ,Harborview Capital 6.843% 03/26/2042,Harborview Capital,Financials,BBB,6.843,2022-12-17,2042-03-26,Corporate
+GWIADZLNM,Harborview Capital 4.024% 06/25/2040,Harborview Capital,Financials,BBB,4.024,2024-09-05,2040-06-25,Corporate
+77AC83R7N,Harborview Capital 2.697% 10/13/2037,Harborview Capital,Financials,AA,2.697,2018-02-11,2037-10-13,Corporate
+RCMQ9MYM5,Corewell Manufacturing 2.325% 03/15/2025,Corewell Manufacturing,Industrials,A,2.325,2022-05-01,2025-03-15,Corporate
+2W39AEZXG,Corewell Manufacturing 4.535% 10/02/2036,Corewell Manufacturing,Industrials,BBB,4.535,2015-10-27,2036-10-02,Corporate
+H1DVRLE0Y,Bluepeak Aerospace 5.138% 12/02/2032,Bluepeak Aerospace,Industrials,BBB,5.138,2018-05-21,2032-12-02,Corporate
+EPS5OVW1R,Bluepeak Aerospace 3.197% 12/17/2027,Bluepeak Aerospace,Industrials,A,3.197,2024-12-05,2027-12-17,Corporate
+57FALF6HP,Bluepeak Aerospace 4.131% 06/26/2032,Bluepeak Aerospace,Industrials,BB,4.131,2021-03-23,2032-06-26,Corporate
+GH963PM7A,Atlas Machining 4.215% 11/07/2029,Atlas Machining,Industrials,A,4.215,2017-06-15,2029-11-07,Corporate
+T4Q2CGF9M,Corewell Manufacturing 5.641% 11/04/2035,Corewell Manufacturing,Industrials,A,5.641,2024-06-17,2035-11-04,Corporate
+F7G76ZDFS,Corewell Manufacturing 3.381% 04/17/2043,Corewell Manufacturing,Industrials,B,3.381,2024-02-17,2043-04-17,Corporate
+M76L42UT4,Corewell Manufacturing 5.383% 07/14/2035,Corewell Manufacturing,Industrials,A,5.383,2017-11-04,2035-07-14,Corporate
+SDW8SJ686,Bluepeak Aerospace 3.155% 07/02/2031,Bluepeak Aerospace,Industrials,A,3.155,2015-12-11,2031-07-02,Corporate
+XHETACNP9,Bluepeak Aerospace 3.493% 02/01/2038,Bluepeak Aerospace,Industrials,A,3.493,2024-05-02,2038-02-01,Corporate
+VWN1AXARW,Atlas Machining 5.476% 10/20/2029,Atlas Machining,Industrials,A,5.476,2019-06-19,2029-10-20,Corporate
+42KX0JJRN,Lakeshore Power 5.164% 11/23/2027,Lakeshore Power,Utilities,B,5.164,2016-10-22,2027-11-23,Corporate
+ACWFGJ6SW,Granite Ridge Utilities 5.177% 01/19/2027,Granite Ridge Utilities,Utilities,AA,5.177,2020-02-10,2027-01-19,Corporate
+PPDQ0XYS2,Lakeshore Power 6.870% 04/13/2030,Lakeshore Power,Utilities,A,6.87,2020-11-13,2030-04-13,Corporate
+PSX36784P,Granite Ridge Utilities 4.614% 02/27/2028,Granite Ridge Utilities,Utilities,A,4.614,2015-09-13,2028-02-27,Corporate
+SWAH8C2NH,Lakeshore Power 2.206% 05/26/2026,Lakeshore Power,Utilities,AA,2.206,2022-08-25,2026-05-26,Corporate
+9FYHXS77C,Granite Ridge Utilities 4.458% 02/22/2027,Granite Ridge Utilities,Utilities,B,4.458,2018-06-23,2027-02-22,Corporate
+VK4YN4WS3,Lakeshore Power 6.116% 10/16/2027,Lakeshore Power,Utilities,A,6.116,2023-06-10,2027-10-16,Corporate
+7Y376AS3A,Granite Ridge Utilities 3.878% 12/20/2030,Granite Ridge Utilities,Utilities,BBB,3.878,2021-06-26,2030-12-20,Corporate
+H0HGFB0NV,Talon Petroleum 3.073% 06/02/2026,Talon Petroleum,Energy,AA,3.073,2015-07-27,2026-06-02,Corporate
+BPP99K7JP,Talon Petroleum 3.986% 02/01/2035,Talon Petroleum,Energy,BBB,3.986,2021-10-26,2035-02-01,Corporate
+P1QZ2N1GW,Talon Petroleum 5.243% 04/04/2032,Talon Petroleum,Energy,BB,5.243,2016-01-15,2032-04-04,Corporate
+EKZ7PYHFP,Windward Midstream 4.532% 08/22/2036,Windward Midstream,Energy,A,4.532,2017-06-22,2036-08-22,Corporate
+RVV4PF374,Basin Creek Energy 4.283% 11/16/2042,Basin Creek Energy,Energy,BB,4.283,2022-10-18,2042-11-16,Corporate
+9G5QIVWML,Talon Petroleum 3.251% 07/26/2028,Talon Petroleum,Energy,A,3.251,2021-08-08,2028-07-26,Corporate
+W77COTA0A,Basin Creek Energy 4.765% 07/14/2043,Basin Creek Energy,Energy,BBB,4.765,2024-04-03,2043-07-14,Corporate
+3JGH5S75L,Windward Midstream 6.470% 11/04/2031,Windward Midstream,Energy,B,6.47,2019-10-09,2031-11-04,Corporate
+63LG8HRJ3,Talon Petroleum 6.055% 06/12/2025,Talon Petroleum,Energy,,6.055,2016-11-17,2025-06-12,Corporate
+ZXE7H13LL,Basin Creek Energy 6.742% 04/26/2025,Basin Creek Energy,Energy,A,6.742,2016-01-19,2025-04-26,Corporate
+PAN8DGGZO,Quanta Systems 6.443% 07/19/2029,Quanta Systems,Technology,A,6.443,2017-09-11,2029-07-19,Corporate
+ZWM2G6B6P,Quanta Systems 4.310% 04/28/2036,Quanta Systems,Technology,AA,4.31,2022-11-01,2036-04-28,Corporate
+N7Z68G2BD,Quanta Systems 6.927% 08/03/2026,Quanta Systems,Technology,,6.927,2021-06-12,2026-08-03,Corporate
+VHF93XHZ7,Quanta Systems 5.431% 02/01/2030,Quanta Systems,Technology,BB,5.431,2020-01-20,2030-02-01,Corporate
+DV872TCVX,Quanta Systems 2.943% 08/21/2025,Quanta Systems,Technology,BBB,2.943,2017-12-27,2025-08-21,Corporate
+7RRU96WRX,Helix Data Corp 4.741% 09/22/2027,Helix Data Corp,Technology,AA,4.741,2022-05-23,2027-09-22,Corporate
+CUME7DYT1,Helix Data Corp 3.142% 08/03/2032,Helix Data Corp,Technology,A,3.142,2017-01-15,2032-08-03,Corporate
+DQ7IE0FTV,Quanta Systems 6.178% 06/04/2041,Quanta Systems,Technology,BBB,6.178,2021-03-21,2041-06-04,Corporate
+3QPGK1A7G,Orchard Retail Group 5.546% 04/09/2032,Orchard Retail Group,Consumer,AA,5.546,2024-08-12,2032-04-09,Corporate
+QSGQCVL0P,Fairfield Brands 6.284% 04/27/2037,Fairfield Brands,Consumer,BB,6.284,2015-11-18,2037-04-27,Corporate
+XWRWGY7W4,Fairfield Brands 6.475% 09/15/2025,Fairfield Brands,Consumer,A,6.475,2020-11-02,2025-09-15,Corporate
+TFYI3F2JS,Fairfield Brands 5.785% 09/11/2027,Fairfield Brands,Consumer,A,5.785,2023-01-26,2027-09-11,Corporate
+TX6WM71BU,Orchard Retail Group 2.172% 11/14/2032,Orchard Retail Group,Consumer,B,2.172,2023-10-08,2032-11-14,Corporate
+RYHSQ0LD6,Fairfield Brands 2.885% 12/10/2036,Fairfield Brands,Consumer,A,2.885,2022-12-08,2036-12-10,Corporate
+XMQXAE3CS,Fairfield Brands 5.467% 06/20/2025,Fairfield Brands,,B,5.467,2016-10-07,2025-06-20,Corporate
+F4996VZB3,Fairfield Brands 5.047% 04/05/2035,Fairfield Brands,Consumer,AA,5.047,2023-12-10,2035-04-05,Corporate
+SQUBO2P2A,Auto Receivables Trust 3.808% 10/09/2027,Auto Receivables Trust,ABS,A,3.808,2018-07-15,2027-10-09,Structured
+0U2V1O3GA,Card Funding Trust 4.737% 08/04/2044,Card Funding Trust,ABS,A,4.737,2024-05-19,2044-08-04,Structured
+YTQS0JLHJ,Auto Receivables Trust 6.833% 05/04/2035,Auto Receivables Trust,ABS,AAA,6.833,2016-03-11,2035-05-04,Structured
+QZMZEQYUV,Card Funding Trust 6.900% 09/24/2028,Card Funding Trust,ABS,AA,6.9,2016-10-12,2028-09-24,Structured
+JCEEYST39,Card Funding Trust 4.048% 02/02/2036,Card Funding Trust,ABS,AAA,4.048,2021-11-27,2036-02-02,Structured
+MBL9ZSN6D,Auto Receivables Trust 3.076% 07/01/2033,Auto Receivables Trust,ABS,AAA,3.076,2021-06-12,2033-07-01,Structured
+9QXT5L32T,Commercial Mortgage Trust 3.427% 02/06/2026,Commercial Mortgage Trust,CMBS,AA,3.427,2022-10-19,2026-02-06,Structured
+CHXDACEZ1,Commercial Mortgage Trust 6.447% 02/03/2026,Commercial Mortgage Trust,CMBS,A,6.447,2016-04-21,2026-02-03,Structured
+JGB673A1M,Commercial Mortgage Trust 6.238% 01/08/2027,Commercial Mortgage Trust,CMBS,A,6.238,2015-12-18,2027-01-08,Structured
+NLP599VY4,Commercial Mortgage Trust 2.255% 12/19/2031,Commercial Mortgage Trust,CMBS,A,2.255,2021-03-23,2031-12-19,Structured
+BRN4YWM4W,Commercial Mortgage Trust 5.937% 08/01/2030,Commercial Mortgage Trust,CMBS,BBB,5.937,2024-07-17,2030-08-01,Structured
+QUSNB5HND,Commercial Mortgage Trust 5.357% 01/10/2037,Commercial Mortgage Trust,CMBS,A,5.357,2020-12-22,2037-01-10,Structured
