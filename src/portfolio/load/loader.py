@@ -121,9 +121,10 @@ def _load_curated(conn, result: CleanResult) -> int:
     total += _insert_frame(conn, security, result.securities)
 
     h = result.holdings.copy()
-    if "market_value_imputed" not in h.columns:
-        h["market_value_imputed"] = False
-    h["market_value_imputed"] = h["market_value_imputed"].fillna(False).astype(bool)
+    for flag in ("market_value_imputed", "post_maturity"):
+        if flag not in h.columns:
+            h[flag] = False
+        h[flag] = h[flag].fillna(False).astype(bool)
     total += _insert_frame(conn, holding, h)
 
     m = result.marks.copy()

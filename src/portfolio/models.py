@@ -172,6 +172,11 @@ holding = Table(
     # aggregates must therefore be null-aware.
     Column("market_value", MONEY),
     Column("market_value_imputed", Boolean, nullable=False, default=False),
+    # A position reported after its security's maturity date. A redeemed bond
+    # cannot have market value, so these rows are retained for audit but excluded
+    # from market-value aggregates by default. Kept as a flag rather than deleted
+    # at load time so the exclusion is visible, reversible, and auditable.
+    Column("post_maturity", Boolean, nullable=False, default=False),
     Column("database_date", Date),
     # The curated grain. Duplicate snapshots are resolved during cleaning, so this
     # constraint is what proves the resolution actually worked.
