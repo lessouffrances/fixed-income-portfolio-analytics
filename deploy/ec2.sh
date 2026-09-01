@@ -237,6 +237,11 @@ chown app:app /opt/app/env
 
 # One-shot load. The extracts are a complete snapshot and the loader is a full
 # refresh, so re-running is safe and idempotent.
+#
+# StandardOutput/Error go to journal+console, not just the journal. Reading the
+# journal needs SSM, and SSM is precisely what is unavailable when bootstrap has
+# failed — so a loader error would otherwise be invisible from outside the box.
+# Mirroring to the console puts it in ec2:GetConsoleOutput, which needs nothing.
 cat > /etc/systemd/system/app-load.service <<'UNIT'
 [Unit]
 Description=Load the portfolio extracts into the database
@@ -250,13 +255,18 @@ WorkingDirectory=/opt/app/repo
 EnvironmentFile=/opt/app/env
 ExecStart=/opt/app/venv/bin/portfolio-load
 RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
 UNIT
 
 cat > /etc/systemd/system/app.service <<'UNIT'
 [Unit]
 Description=Fixed-income portfolio analytics dashboard
+# Wants, not Requires: if the load fails the app should still come up and say so.
+# Requires meant one loader error left nothing listening on port 80, which is the
+# hardest possible failure to diagnose from outside.
 After=app-load.service
-Requires=app-load.service
+Wants=app-load.service
 
 [Service]
 User=app
@@ -275,8 +285,16 @@ WantedBy=multi-user.target
 UNIT
 
 systemctl daemon-reload
-systemctl enable --now app-load.service
+
+# '|| true' because set -e would otherwise abort the whole bootstrap here, leaving
+# the dashboard unstarted over a data problem. The exit code is echoed instead so
+# it is visible on the console.
+systemctl start app-load.service || true
+echo "app-load.service result: $(systemctl show -p Result --value app-load.service)"
+systemctl --no-pager -l status app-load.service || true
+
 systemctl enable --now app.service
+echo "app.service result: $(systemctl show -p Result --value app.service)"
 USERDATA
 
     aws ec2 run-instances --region "$REGION" \
