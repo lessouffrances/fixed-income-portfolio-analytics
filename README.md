@@ -153,24 +153,6 @@ is past the 12-month window, so none of it is free tier. `./deploy/ec2.sh teardo
 only `ec2:GetConsoleOutput`, which is what you want when bootstrap failed and the SSM
 agent never came up.
 
-### What actually went wrong the first time
-
-Recorded because it is the honest answer to "did you test the deployment", and because
-each failure is now guarded against:
-
-| Failure | Cause | Fix |
-|---|---|---|
-| `MalformedPolicyDocument` | The IAM policy carried a top-level `"Comment"` key. IAM permits only `Version`, `Id`, `Statement`. | Explanation moved to `deploy/README.md` |
-| `systemctl: command not found` **on the operator's laptop** | `$(...)` inside an unquoted heredoc is executed by the local shell, not the instance | Escaped as `\$(...)` |
-| Waiter failed on state `terminated` | It filtered by tag `Name`, which the just-terminated instance still carried | Wait by instance id |
-| `NoRegionError`, then a gunicorn crash-loop | boto3 does not infer the region from instance metadata and a systemd unit inherits nothing from a shell. Worse, `NoRegionError` is not a `ConfigError`, so the 503-with-a-reason path never fired and nothing listened on port 80. | `AWS_REGION` written into the instance env; region checked explicitly with a named error; the WSGI entry point now degrades on *any* import-time failure |
-
-None of these were findable without deploying. The lasting change is diagnostic rather
-than cosmetic: `app-load.service` writes to `journal+console` so a loader error is
-readable through `ec2:GetConsoleOutput` alone, and `app.service` only *wants* the load
-rather than requiring it — a data problem now yields a dashboard saying "no data" instead
-of a refused connection.
-
 ---
 
 ## How the data load works
@@ -218,25 +200,34 @@ id, a date, or a value from this particular extract** — that is what makes the
 data-quality page work on a different extract. The test fixtures are dated 2031 with
 invented ids, so a rule that accidentally hardcodes something fails the suite.
 
+### Further reading
+
+**[docs/raw-to-curated.md](docs/raw-to-curated.md)** — a row-level walkthrough of each of
+the four `raw_* → curated` pairs: exactly which rows were dropped, which cells were
+changed from what to what, which rule did it and why, with the SQL to reproduce every
+figure. Read it to audit the cleaning rather than take it on trust. It also records a
+known asymmetry — HL009 checks the end of a security's lifecycle and nothing checks the
+beginning.
+
 ---
 
 ## Answers
 
 ### Q1 — Market value by month-end, and the largest move
 
-| Month | Market value | Change | | Month | Market value | Change |
-|---|---|---|---|---|---|---|
-| Jan | $841.3M | — | | Jul | $834.5M | +$5.4M |
-| Feb | $839.0M | −$2.4M | | Aug | $837.1M | +$2.6M |
-| Mar | $824.9M | −$14.1M | | Sep | $825.5M | −$11.5M |
-| Apr | $833.3M | +$8.4M | | Oct | $876.8M | **+$51.3M** |
-| May | $833.4M | +$0.1M | | Nov | $880.8M | +$4.0M |
-| Jun | $829.1M | −$4.3M | | Dec | $879.4M | −$1.4M |
+| Month | Market value | Change  | | Month | Market value | Change |
+|-------|--------------|---------| |-------|--------------|--------|
+| Jan   | $841.3M      | —       | |   Jul |    $834.5M   | +$5.4M |
+| Feb   | $839.0M      | −$2.4M  | |   Aug |    $837.1M   | +$2.6M |
+| Mar   | $824.9M      | −$14.1M | |   Sep |    $825.5M   | −$11.5M |
+| Apr   | $833.3M      | +$8.4M  | |   Oct |    $876.8M   | **+$51.3M** |
+| May   | $833.4M      | +$0.1M  | |   Nov |    $880.8M   | +$4.0M |
+| Jun   | $829.1M      | −$4.3M  | |   Dec |    $879.4M   | −$1.4M |
 
 **Largest absolute change: October 2025, +$51.25M**, of which:
 
 | Component | Amount |
-|---|---|
+|-----------|--------|
 | Trading | **+$52.07M** |
 | Price (market) | −$0.83M |
 | Interaction | +$0.02M |
@@ -260,29 +251,23 @@ real — a bond bought during a month in which prices moved is attributable to n
 factor alone — and absorbing it silently is a common reason attribution fails to
 reconcile. **Verified: the maximum residual across all twelve months is $0.000000.**
 
-Trading is then measured a *second, independent* way — signed par × trade price from
-`transactions.csv` — and the two are reconciled rather than assumed to agree. Residual
-gaps are at most $0.66M (September) and are the expected consequence of month-end prices
-versus actual trade prices. **This check earned its keep immediately**: it flagged a
-$4.44M discrepancy in October that turned out to be a phantom position (see Q5, HL009).
-
 ### Q2 — January versus December allocation
 
 **Sector — the three largest shifts, all driven by trading:**
 
-| Sector | Weight | Value change | Market | Trading | Driver |
-|---|---|---|---|---|---|
-| Treasury | 9.1% → 12.1% (+2.99pp) | +$29.8M | +$0.9M | +$28.9M | **trading** |
-| Financials | 19.1% → 21.4% (+2.27pp) | +$27.3M | −$0.2M | +$27.5M | **trading** |
-| Consumer | 9.6% → 7.9% (−1.69pp) | −$11.2M | +$0.6M | −$11.8M | **trading** |
+|   Sector   |          Weight         | Value change | Market | Trading | Driver |
+|------------|-------------------------|--------------|--------|---------|--------|
+|  Treasury  | 9.1% → 12.1% (+2.99pp)  |    +$29.8M   | +$0.9M | +$28.9M | **trading** |
+| Financials | 19.1% → 21.4% (+2.27pp) |    +$27.3M   | −$0.2M | +$27.5M | **trading** |
+| Consumer   | 9.6% → 7.9% (−1.69pp)   |    −$11.2M   | +$0.6M | −$11.8M | **trading** |
 
 **Rating — the three largest shifts:**
 
-| Rating | Weight | Value change | Market | Trading | Driver |
-|---|---|---|---|---|---|
-| A | 34.2% → 32.7% (−1.55pp) | −$0.6M | −$4.8M | +$4.1M | **market** |
-| AA | 17.3% → 18.2% (+0.86pp) | +$14.1M | −$0.3M | +$14.4M | trading |
-| AAA | 14.2% → 14.9% (+0.68pp) | +$11.4M | −$0.3M | +$11.8M | trading |
+| Rating |         Weight           | Value change | Market | Trading | Driver |
+|--------|--------------------------|--------------|--------|---------|--------|
+|    A   | 34.2% → 32.7% (−1.55pp)  |    −$0.6M    | −$4.8M | +$4.1M  | **market** |
+|   AA   | 17.3% → 18.2% (+0.86pp)  |   +$14.1M    | −$0.3M | +$14.4M | trading |
+|  AAA   | 14.2% → 14.9% (+0.68pp)  |   +$11.4M    | −$0.3M | +$11.8M | trading |
 
 The A-rated row is the one that matters methodologically. The portfolio **bought** $4.1M
 of A-rated paper and its weight still *fell*, because $4.8M of market losses more than
@@ -293,10 +278,8 @@ Reading weight movement alone would have produced the opposite conclusion here.
 
 ### Q3 — Energy, March 2025
 
-| | |
-|---|---|
-| Average clean price | 99.8 → 91.8 (**−7.95%**) |
-| Weighted-average OAS | 133 → 260bp (**+127bp**) |
+| Average clean price | 99.8 → 91.8 (**−7.95%**) 
+| Weighted-average OAS | 133 → 260bp (**+127bp**) 
 | Sector market-value change | **−$12.44M** (price −$6.93M, trading −$6.09M) |
 | Portfolio market-value change | −$14.09M |
 | **Energy's share of the portfolio move** | **88.3%** |
@@ -315,19 +298,19 @@ exposure.
 
 ### Q4 — Worst full-year price returns among securities held all year
 
-| # | Security | Sector | Price return | Price-only MV impact |
-|---|---|---|---|---|
-| 1 | Talon Petroleum 3.251% 07/26/2028 | Energy | −9.79% | −$2,196,611 |
-| 2 | Basin Creek Energy 4.283% 11/16/2042 | Energy | −8.80% | −$768,652 |
-| 3 | Card Funding Trust 4.048% 02/02/2036 | ABS | −8.71% | −$1,088,630 |
-| 4 | Windward Midstream 6.470% 11/04/2031 | Energy | −7.70% | −$261,617 |
-| 5 | Basin Creek Energy 4.765% 07/14/2043 | Energy | −6.84% | −$1,147,092 |
-| 6 | Windward Midstream 4.532% 08/22/2036 | Energy | −6.82% | −$1,201,950 |
-| 7 | Talon Petroleum 3.073% 06/02/2026 | Energy | −6.14% | −$497,825 |
-| 8 | Granite Ridge Utilities 5.177% 01/19/… | Utilities | −5.12% | −$1,176,767 |
-| 9 | Bluepeak Aerospace 4.131% 06/26/2032 | Industrials | −4.63% | −$373,561 |
-| 10 | Talon Petroleum 3.986% 02/01/2035 | Energy | −4.06% | −$292,307 |
-| | | | | **−$9.01M total** |
+| # | Security                               | Sector       | Price return | Price-only MV impact |
+|---|----------------------------------------|--------------|--------------|----------------------|
+| 1 | Talon Petroleum 3.251% 07/26/2028      | Energy       | −9.79%       | −$2,196,611          |
+| 2 | Basin Creek Energy 4.283% 11/16/2042   | Energy       | −8.80%       | −$768,652            |
+| 3 | Card Funding Trust 4.048% 02/02/2036   | ABS          | −8.71%       | −$1,088,630          | 
+| 4 | Windward Midstream 6.470% 11/04/2031   | Energy       | −7.70%       | −$261,617            |
+| 5 | Basin Creek Energy 4.765% 07/14/2043   | Energy       | −6.84%       | −$1,147,092          |
+| 6 | Windward Midstream 4.532% 08/22/2036   | Energy       | −6.82%       | −$1,201,950          |
+| 7 | Talon Petroleum 3.073% 06/02/2026      | Energy       | −6.14%       | −$497,825            |
+| 8 | Granite Ridge Utilities 5.177% 01/19/… | Utilities    | −5.12%       | −$1,176,767          |
+| 9 | Bluepeak Aerospace 4.131% 06/26/2032   | Industrials  | −4.63%       | −$373,561            |
+| 10| Talon Petroleum 3.986% 02/01/2035      | Energy       | −4.06%       | −$292,307            |
+|   |                                        |              |              | **−$9.01M total** |
 
 **Seven of the ten are Energy**, consistent with Q3.
 
@@ -346,7 +329,7 @@ which reads the `dq_finding` table and holds no hardcoded content. It presents t
 findings four ways, because different anomalies need different scrutiny:
 
 | Where | What it shows |
-|---|---|
+|-------|---------------|
 | Severity tiles | Error / warning / info counts, and how many of the 32 rules fired |
 | *Findings by rule* | Count per rule, coloured by severity, with a sortable table beneath |
 | *Values changed during loading* | Every repair, with the **delivered value beside the value actually used** — the rows carrying the most obligation to be auditable |
@@ -536,21 +519,6 @@ taken is stated rather than assumed to be obvious.
     changed and was left running rather than relaunched for a new public IP. The two
     are identical in size, and a fresh `./deploy/ec2.sh provision` gives `t2.micro`.
 
-### Known limitations
-
-23. **No CI.** The 136 tests run locally and nothing verifies them on push. This is a gap
-    worth closing.
-24. **Dark mode is implemented and tested but has no UI toggle.** Templates and tokens
-    exist for both modes; there is no control to switch.
-25. **Verified end to end on RDS PostgreSQL 18**, not only SQLite. The deployed load
-    produced identical results to local — 1856 raw rows, 1845 curated, 71 findings — so
-    `NUMERIC`, `JSONB` and `BIGSERIAL` all round-trip correctly. The test suite still
-    runs on SQLite via dialect variants, so it needs no server.
-26. **`dash_table` is deprecated** in favour of `dash-ag-grid`. It works; swapping it was
-    not judged worth the churn.
-27. **Single instance, no autoscaling, no TLS.** The brief explicitly permits plain HTTP
-    and a bare IP. Production would want a certificate and a load balancer.
-
 ---
 
 ## Repository layout
@@ -585,6 +553,9 @@ deploy/
 └── iam-policy.json      scoped alternative to IAMFullAccess
 
 tests/                   136 tests, no server or credentials required
+
+docs/
+└── raw-to-curated.md    row-level walkthrough of the four raw -> curated pairs
 ```
 
 ## Testing
