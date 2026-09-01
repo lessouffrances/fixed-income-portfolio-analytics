@@ -1,22 +1,5 @@
 {
   "Version": "2012-10-17",
-  "Comment": [
-    "Minimal IAM permissions needed by deploy/ec2.sh, scoped to this project.",
-    "",
-    "Attach this as an inline policy on your IAM user instead of IAMFullAccess.",
-    "IAMFullAccess would let a long-lived access key on your laptop create any role",
-    "in the account; this grants only what the deploy script actually calls, and",
-    "only for resources whose names begin with the project prefix.",
-    "",
-    "  aws iam put-user-policy \\",
-    "    --user-name <your-iam-user> \\",
-    "    --policy-name fixed-income-deploy \\",
-    "    --policy-document file://deploy/iam-policy.json",
-    "",
-    "iam:PassRole is the one people miss: launching an instance with an instance",
-    "profile requires permission to hand that role to EC2, separately from creating",
-    "it. It is restricted here to the project role and to the EC2 service."
-  ],
   "Statement": [
     {
       "Sid": "ManageProjectRole",
