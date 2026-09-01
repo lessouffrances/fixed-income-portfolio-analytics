@@ -531,7 +531,10 @@ taken is stated rather than assumed to be obvious.
     same resources are billed at roughly $22/month. Worth noting that the EC2 free
     tier covers t2.micro *or* t3.micro "depending on region": t2.micro is available in
     us-east-1, so t2.micro is the free-tier type here and `t3.micro` would be billed
-    even on a new account. The scripts default to `t2.micro` for that reason.
+    even on a new account. The scripts default to `t2.micro` for that reason. Note the
+    currently deployed instance is a `t3.micro`: it was launched before that default
+    changed and was left running rather than relaunched for a new public IP. The two
+    are identical in size, and a fresh `./deploy/ec2.sh provision` gives `t2.micro`.
 
 ### Known limitations
 
