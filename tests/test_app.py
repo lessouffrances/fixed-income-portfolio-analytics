@@ -376,3 +376,25 @@ def test_server_attribute_is_always_callable(monkeypatch):
     import portfolio.app.main as main_mod
 
     assert callable(main_mod.server) or hasattr(main_mod.server, "__call__")
+
+
+def test_wsgi_entry_point_degrades_on_any_import_failure(monkeypatch):
+    """Not just ConfigError. The first real deployment crash-looped because a
+    botocore NoRegionError escaped the handler and nothing listened on the port."""
+    import portfolio.app.main as main_mod
+
+    def boom(*_a, **_k):
+        raise RuntimeError("something unexpected at import")
+
+    monkeypatch.setattr(main_mod, "create_app", boom)
+    app = main_mod._make_server()
+    assert callable(app)
+
+    captured = {}
+
+    def start_response(status, headers):
+        captured["status"] = status
+
+    body = b"".join(app({}, start_response))
+    assert captured["status"].startswith("503")
+    assert b"something unexpected at import" in body

@@ -334,6 +334,7 @@ def test_url_assembled_from_an_rds_managed_secret(monkeypatch):
     monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
     monkeypatch.setenv("DB_HOST", RDS_HOST)
     monkeypatch.setenv("DB_NAME", "portfolio")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
 
     fake_secret = json.dumps({"username": "dbadmin", "password": "p@ss/w:rd"})
 
@@ -342,7 +343,7 @@ def test_url_assembled_from_an_rds_managed_secret(monkeypatch):
             assert SecretId == "arn:aws:secretsmanager:::secret:rds!db-1"
             return {"SecretString": fake_secret}
 
-    fake_boto3 = types.SimpleNamespace(client=lambda _svc: FakeClient())
+    fake_boto3 = types.SimpleNamespace(client=lambda _svc, region_name=None: FakeClient())
     monkeypatch.setitem(sys.modules, "boto3", fake_boto3)
 
     url = resolve_database_url()
@@ -358,13 +359,16 @@ def test_a_malformed_secret_is_reported_as_configuration(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
     monkeypatch.setenv("DB_HOST", RDS_HOST)
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
 
     class FakeClient:
         def get_secret_value(self, SecretId):  # noqa: N803
             return {"SecretString": json.dumps({"user": "wrong-key"})}
 
     monkeypatch.setitem(
-        sys.modules, "boto3", types.SimpleNamespace(client=lambda _svc: FakeClient())
+        sys.modules,
+        "boto3",
+        types.SimpleNamespace(client=lambda _svc, region_name=None: FakeClient()),
     )
     with pytest.raises(ConfigError, match="RDS-managed credential"):
         resolve_database_url()
@@ -400,3 +404,63 @@ def test_healthcheck_reports_false_instead_of_raising():
 
 def test_healthcheck_reports_true_on_a_live_database(engine):
     assert healthcheck(engine) is True
+
+
+def test_secret_resolution_requires_a_region(monkeypatch):
+    """The bug that broke the first real deployment.
+
+    boto3 does not infer the region from instance metadata, and a systemd unit
+    inherits nothing from a shell — so a missing AWS_REGION surfaced as a bare
+    botocore NoRegionError from deep inside endpoint resolution, giving no hint
+    that one environment variable was the entire problem. It must fail as a
+    ConfigError that says so.
+    """
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
+    monkeypatch.setenv("DB_HOST", RDS_HOST)
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+
+    with pytest.raises(ConfigError, match="region"):
+        resolve_database_url()
+
+
+def test_secret_resolution_uses_the_configured_region(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
+    monkeypatch.setenv("DB_HOST", RDS_HOST)
+    monkeypatch.setenv("AWS_REGION", "eu-west-2")
+    monkeypatch.setenv("DB_NAME", "portfolio")
+
+    seen = {}
+
+    class FakeClient:
+        def get_secret_value(self, SecretId):  # noqa: N803
+            return {"SecretString": json.dumps({"username": "u", "password": "p"})}
+
+    def fake_client(service, region_name=None):
+        seen["service"], seen["region"] = service, region_name
+        return FakeClient()
+
+    monkeypatch.setitem(sys.modules, "boto3", types.SimpleNamespace(client=fake_client))
+    url = resolve_database_url()
+    assert seen == {"service": "secretsmanager", "region": "eu-west-2"}
+    assert url.startswith("postgresql+psycopg://u:p@")
+
+
+def test_a_boto_failure_becomes_a_config_error(monkeypatch):
+    """Anything boto raises must arrive as ConfigError, so the WSGI entry point
+    can serve a 503 naming the cause instead of gunicorn crash-looping."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DB_SECRET_ARN", "arn:aws:secretsmanager:::secret:rds!db-1")
+    monkeypatch.setenv("DB_HOST", RDS_HOST)
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+
+    def exploding_client(service, region_name=None):
+        raise RuntimeError("simulated botocore failure")
+
+    monkeypatch.setitem(
+        sys.modules, "boto3", types.SimpleNamespace(client=exploding_client)
+    )
+    with pytest.raises(ConfigError, match="simulated botocore failure"):
+        resolve_database_url()

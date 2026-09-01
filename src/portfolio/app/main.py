@@ -194,6 +194,14 @@ def _make_server():
     except ConfigError as exc:
         log.error("cannot build the app: %s", exc)
         return _misconfigured_server(str(exc))
+    except Exception as exc:  # noqa: BLE001
+        # Deliberately broad. The first real deployment crash-looped under gunicorn
+        # because a botocore NoRegionError is not a ConfigError, so it escaped this
+        # handler entirely and nothing ever listened on the port. Any import-time
+        # failure should degrade to a 503 that names itself, because a served error
+        # is diagnosable from outside the instance and a restart loop is not.
+        log.exception("cannot build the app")
+        return _misconfigured_server(f"{type(exc).__name__}: {exc}")
 
 
 server = _make_server()

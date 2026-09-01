@@ -227,6 +227,11 @@ DB_HOST=$db_host
 DB_PORT=$db_port
 DB_NAME=$db_name
 DB_SSLMODE=require
+# Required. boto3 does not infer the region from instance metadata, and a systemd
+# unit inherits nothing from a shell — without this, reading the secret fails with
+# a bare NoRegionError from inside botocore's endpoint resolution.
+AWS_REGION=$REGION
+AWS_DEFAULT_REGION=$REGION
 DATA_DIR=/opt/app/repo/data
 HOST=0.0.0.0
 PORT=$APP_PORT
@@ -290,14 +295,15 @@ systemctl daemon-reload
 # the dashboard unstarted over a data problem. The exit code is echoed instead so
 # it is visible on the console.
 systemctl start app-load.service || true
-echo "app-load.service result: $(systemctl show -p Result --value app-load.service)"
+echo "app-load.service result: \$(systemctl show -p Result --value app-load.service)"
 systemctl --no-pager -l status app-load.service || true
 
 systemctl enable --now app.service
-echo "app.service result: $(systemctl show -p Result --value app.service)"
+echo "app.service result: \$(systemctl show -p Result --value app.service)"
 USERDATA
 
-    aws ec2 run-instances --region "$REGION" \
+    local new_id
+    new_id="$(aws ec2 run-instances --region "$REGION" \
       --image-id "$ami" \
       --instance-type "$INSTANCE_TYPE" \
       --iam-instance-profile "Name=$PROFILE_NAME" \
@@ -307,12 +313,14 @@ USERDATA
       --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":16,"VolumeType":"gp3","DeleteOnTermination":true}}]' \
       --tag-specifications \
         "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME},{Key=project,Value=$PROJECT_TAG}]" \
-      --query 'Instances[0].InstanceId' --output text >/dev/null
+      --query 'Instances[0].InstanceId' --output text)"
     rm -f "$userdata"
+    log "launched $new_id"
 
+    # By id, not by tag: a previously terminated instance keeps its Name tag, so a
+    # tag filter matches it too and the waiter fails on its 'terminated' state.
     log "waiting for the instance to run"
-    aws ec2 wait instance-running --region "$REGION" \
-      --filters "Name=tag:Name,Values=$INSTANCE_NAME"
+    aws ec2 wait instance-running --region "$REGION" --instance-ids "$new_id"
   fi
 
   log "instance is up; bootstrap takes a further 2-4 minutes"

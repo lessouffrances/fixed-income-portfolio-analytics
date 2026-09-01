@@ -120,13 +120,37 @@ def _url_from_secrets_manager(secret_arn: str) -> str:
             "install requirements.txt on the instance."
         ) from exc
 
-    client = boto3.client("secretsmanager")
+    # Region must be explicit. boto3 does not fall back to instance metadata for
+    # the region, and a systemd service inherits nothing from a shell — so on EC2
+    # this raised a bare botocore NoRegionError from deep inside endpoint
+    # resolution, with nothing to indicate that a single environment variable was
+    # the whole problem.
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or ""
+    ).strip()
+    if not region:
+        raise ConfigError(
+            "DB_SECRET_ARN is set but no AWS region is configured. Set AWS_REGION "
+            "(or AWS_DEFAULT_REGION) in the environment — boto3 does not infer it "
+            "from instance metadata, and a systemd unit inherits nothing from a shell."
+        )
+
+    # Client construction can fail on its own (bad region, no endpoint), so it is
+    # inside the guard too. Everything here becomes a ConfigError, which is what
+    # the WSGI entry point catches to serve a 503 naming the cause rather than
+    # crash-looping under gunicorn.
     try:
+        client = boto3.client("secretsmanager", region_name=region)
         raw = client.get_secret_value(SecretId=secret_arn)["SecretString"]
+    except ConfigError:
+        raise
     except Exception as exc:  # noqa: BLE001 — surface as configuration, not a stack trace
         raise ConfigError(
-            f"Could not read the database secret. Check the instance role grants "
-            f"secretsmanager:GetSecretValue on {secret_arn}. ({type(exc).__name__})"
+            f"Could not read the database secret from {region}. Check the instance "
+            f"role grants secretsmanager:GetSecretValue on {secret_arn}. "
+            f"({type(exc).__name__}: {exc})"
         ) from exc
 
     payload = json.loads(raw)
