@@ -1,5 +1,7 @@
 # Fixed-income portfolio analytics
 
+**Live: <http://23.23.51.146>** — plain HTTP, no auth, four pages via the top nav.
+
 Loads four CSV extracts for a ~$850M bond portfolio into PostgreSQL, validates them
 against 32 rules, computes portfolio analytics, and serves the result as a Plotly Dash
 dashboard.
@@ -8,6 +10,16 @@ The extracts contain deliberate defects. Finding and handling them is a substant
 part of the work, so the data-quality layer is treated as a first-class feature rather
 than a preprocessing step: every anomaly is detected by a rule, recorded with its
 before-and-after values, and surfaced in the application.
+
+Deployed on EC2 (`t3.micro`, Amazon Linux 2023) against RDS PostgreSQL 18 in the same
+VPC, with the database not publicly accessible and its password held in AWS Secrets
+Manager. `GET /healthz` is a liveness probe.
+
+> **Note on cost:** this stack runs at roughly **$22/month** and the AWS account is
+> past its first 12 months, so none of it is free tier. If the URL above is dead, it
+> has been torn down — `./deploy/rds.sh provision && ./deploy/ec2.sh provision`
+> rebuilds it in about 15 minutes, or see [Quick start](#quick-start-local) to run it
+> locally with no AWS account at all.
 
 ---
 
@@ -26,7 +38,7 @@ flowchart LR
         LOAD --> RULES
     end
 
-    subgraph rds["RDS PostgreSQL — db.t4g.micro, private"]
+    subgraph rds["RDS PostgreSQL 18 — db.t4g.micro, private"]
         RAW["raw_* tables<br/><i>CSVs verbatim, all TEXT</i>"]
         CUR["security · holding<br/>mark · trade<br/><i>typed, constrained</i>"]
         DQ["dq_finding<br/>load_run"]
@@ -43,7 +55,7 @@ flowchart LR
     SM -.->|"instance role,<br/>runtime only"| APP
     SM -.-> LOAD
 
-    USER(["Browser<br/>http://IP"]) -->|HTTP 80| APP
+    USER(["Browser<br/>http://23.23.51.146"]) -->|HTTP 80| APP
 ```
 
 **Why this shape.**
@@ -113,13 +125,11 @@ no human ever sees it. `ec2.sh` then creates the instance role (scoped to that o
 secret ARN), opens port 80 only, launches the instance, loads the data and starts the
 app. The public URL comes from `./deploy/ec2.sh url`.
 
-**IAM.** The deploy scripts need EC2, RDS and Secrets Manager access, plus a small set
-of IAM permissions for the instance role. Rather than `IAMFullAccess`, attach the scoped
-policy in [`deploy/iam-policy.json`](deploy/iam-policy.json):
-
-```bash
-aws iam put-user-policy --user-name YOUR_USER --policy-name fixed-income-deploy --policy-document file://deploy/iam-policy.json
-```
+**IAM.** The deploy scripts need `AmazonEC2FullAccess`, `AmazonRDSFullAccess` and
+`SecretsManagerReadWrite`, plus a small set of IAM permissions so the instance role can
+be created. Rather than `IAMFullAccess`, attach the scoped policy in
+[`deploy/iam-policy.json`](deploy/iam-policy.json) — full instructions, including why
+this has to be done from the console as root, are in [`deploy/README.md`](deploy/README.md).
 
 **Cost.** Roughly **$22/month** total (RDS ~$14.40, EC2 t3.micro ~$7.50). This account
 is past the 12-month window, so none of it is free tier. `./deploy/ec2.sh teardown` and
@@ -132,8 +142,34 @@ is past the 12-month window, so none of it is free tier. `./deploy/ec2.sh teardo
 ```
 
 ```bash
+./deploy/ec2.sh console
+```
+
+```bash
 ./deploy/ec2.sh redeploy
 ```
+
+`logs` reads the systemd journal over SSM; `console` reads the serial console and needs
+only `ec2:GetConsoleOutput`, which is what you want when bootstrap failed and the SSM
+agent never came up.
+
+### What actually went wrong the first time
+
+Recorded because it is the honest answer to "did you test the deployment", and because
+each failure is now guarded against:
+
+| Failure | Cause | Fix |
+|---|---|---|
+| `MalformedPolicyDocument` | The IAM policy carried a top-level `"Comment"` key. IAM permits only `Version`, `Id`, `Statement`. | Explanation moved to `deploy/README.md` |
+| `systemctl: command not found` **on the operator's laptop** | `$(...)` inside an unquoted heredoc is executed by the local shell, not the instance | Escaped as `\$(...)` |
+| Waiter failed on state `terminated` | It filtered by tag `Name`, which the just-terminated instance still carried | Wait by instance id |
+| `NoRegionError`, then a gunicorn crash-loop | boto3 does not infer the region from instance metadata and a systemd unit inherits nothing from a shell. Worse, `NoRegionError` is not a `ConfigError`, so the 503-with-a-reason path never fired and nothing listened on port 80. | `AWS_REGION` written into the instance env; region checked explicitly with a named error; the WSGI entry point now degrades on *any* import-time failure |
+
+None of these were findable without deploying. The lasting change is diagnostic rather
+than cosmetic: `app-load.service` writes to `journal+console` so a loader error is
+readable through `ec2:GetConsoleOutput` alone, and `app.service` only *wants* the load
+rather than requiring it — a data problem now yields a dashboard saying "no data" instead
+of a refused connection.
 
 ---
 
@@ -461,12 +497,14 @@ well-reasoned assumption you disagree with should be easy to locate and argue wi
 
 ### Known limitations
 
-21. **No CI.** The 132 tests run locally and nothing verifies them on push. This is a gap
+21. **No CI.** The 136 tests run locally and nothing verifies them on push. This is a gap
     worth closing.
 22. **Dark mode is implemented and tested but has no UI toggle.** Templates and tokens
     exist for both modes; there is no control to switch.
-23. **Verified against SQLite and PostgreSQL, but the RDS path is exercised only at
-    deployment.** The schema uses dialect variants so the same definitions run on both.
+23. **Verified end to end on RDS PostgreSQL 18**, not only SQLite. The deployed load
+    produced identical results to local — 1856 raw rows, 1845 curated, 71 findings — so
+    `NUMERIC`, `JSONB` and `BIGSERIAL` all round-trip correctly. The test suite still
+    runs on SQLite via dialect variants, so it needs no server.
 24. **`dash_table` is deprecated** in favour of `dash-ag-grid`. It works; swapping it was
     not judged worth the churn.
 25. **Single instance, no autoscaling, no TLS.** The brief explicitly permits plain HTTP
@@ -505,7 +543,7 @@ deploy/
 ├── ec2.sh               provision / status / url / logs / redeploy / teardown
 └── iam-policy.json      scoped alternative to IAMFullAccess
 
-tests/                   132 tests, no server or credentials required
+tests/                   136 tests, no server or credentials required
 ```
 
 ## Testing
@@ -514,7 +552,7 @@ tests/                   132 tests, no server or credentials required
 .venv/bin/python -m pytest
 ```
 
-132 tests, no database server and no credentials needed. The cleaning rules are the most
+136 tests, no database server and no credentials needed. The cleaning rules are the most
 heavily covered area, since they carry the most judgement.
 
 Two properties are defended deliberately. **Clean input must produce zero findings** — a
