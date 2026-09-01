@@ -27,9 +27,40 @@ silently into one side is a common source of attribution that does not add up.
 Reporting it separately keeps the identity exact and the choice visible. It is
 normally small; when it is not, that itself is worth seeing.
 
+Where par and price come from
+-----------------------------
+Neither file carries both. `holdings_monthly.csv` supplies par_amount and
+market_value but has no price column at all; `marks_monthly.csv` supplies
+clean_price. `queries.load_positions` joins them and exposes a single `price`
+column, which is the delivered mark where one exists and otherwise the price
+implied by market_value / par x 100. Everything below operates on that joined
+panel, not on the holdings file alone.
+
+Why the decomposition reconciles to ΔMV
+---------------------------------------
+Not "by construction". The decomposition is built from par x price, while ΔMV is
+read from the market_value column, so the two agree only if
+
+    market_value == par x price / 100
+
+holds for both month-ends. On this extract it does, for three different reasons:
+
+  * 763 of 800 curated positions take price from a delivered mark, and the
+    identity is an EMPIRICAL property of the extract — verified to $0.000000.
+  * 22 positions have no mark, so price is defined as market_value / par x 100
+    and the identity is true by construction.
+  * 15 positions had a null market_value, imputed as par x price / 100, so again
+    true by construction.
+
+The distinction matters: for the majority of rows this is an observed fact about
+the data, not a tautology, and a different extract could violate it. HL006 is the
+rule that tests it. HL006 firing would not be a cosmetic warning — it would mean
+the attribution no longer reconciles, so it is treated as invalidating rather than
+advisory.
+
 Trading is measured two independent ways
 ----------------------------------------
-1. From holdings: (par_t - par_(t-1)) x P_(t-1). Reconciles to ΔMV by construction.
+1. From the position panel: (par_t - par_(t-1)) x P_(t-1).
 2. From the transactions file: signed par x trade price, summed over the month.
 
 These should agree. Where they do not, par moved without a corresponding trade —
