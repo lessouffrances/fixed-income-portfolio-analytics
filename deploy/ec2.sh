@@ -46,9 +46,24 @@ REPO_BRANCH="${REPO_BRANCH:-main}"
 REGION="${AWS_REGION:-$(aws configure get region 2>/dev/null || echo us-east-1)}"
 PROJECT_TAG="fixed-income-portfolio-analytics"
 
-# Amazon Linux 2023, resolved from the public SSM parameter rather than pinned.
-# A hardcoded AMI id is wrong within weeks and silently region-specific.
-AMI_PARAM="/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+# Amazon Linux 2023, resolved at run time rather than pinned: a hardcoded AMI id
+# is stale within weeks and silently region-specific.
+#
+# Resolved via ec2:DescribeImages rather than the public SSM parameter that AWS
+# publishes for this. The SSM route is the more idiomatic one, but reading it
+# needs ssm:GetParameters, which AmazonEC2FullAccess does not grant — so a user
+# who can launch instances perfectly well would fail at looking up what to launch.
+# DescribeImages needs only EC2 permissions the deployer already has.
+AMI_NAME_PATTERN="${AMI_NAME_PATTERN:-al2023-ami-2023*-kernel-6.1-x86_64}"
+
+resolve_ami() {
+  aws ec2 describe-images --region "$REGION" \
+    --owners amazon \
+    --filters "Name=name,Values=$AMI_NAME_PATTERN" \
+              "Name=state,Values=available" \
+              "Name=architecture,Values=x86_64" \
+    --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text
+}
 
 log()  { printf '\033[1m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33mwarning:\033[0m %s\n' "$*" >&2; }
@@ -178,8 +193,9 @@ cmd_provision() {
   if [[ "$existing" != "None" && -n "$existing" ]]; then
     log "instance $existing already exists; skipping launch"
   else
-    local ami; ami="$(aws ssm get-parameters --region "$REGION" \
-      --names "$AMI_PARAM" --query 'Parameters[0].Value' --output text)"
+    local ami; ami="$(resolve_ami)"
+    [[ -z "$ami" || "$ami" == "None" ]] && die \
+      "could not resolve an Amazon Linux 2023 AMI in $REGION matching '$AMI_NAME_PATTERN'"
     log "launching $INSTANCE_TYPE from $ami"
 
     local userdata; userdata="$(mktemp)"
