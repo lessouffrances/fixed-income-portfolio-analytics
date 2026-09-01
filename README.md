@@ -11,7 +11,7 @@ part of the work, so the data-quality layer is treated as a first-class feature 
 than a preprocessing step: every anomaly is detected by a rule, recorded with its
 before-and-after values, and surfaced in the application.
 
-Deployed on EC2 (`t3.micro`, Amazon Linux 2023) against RDS PostgreSQL 18 in the same
+Deployed on EC2 (`t2.micro`, Amazon Linux 2023) against RDS PostgreSQL 18 in the same
 VPC, with the database not publicly accessible and its password held in AWS Secrets
 Manager. `GET /healthz` is a liveness probe.
 
@@ -31,7 +31,7 @@ flowchart LR
         CSV["security_master.csv<br/>holdings_monthly.csv<br/>marks_monthly.csv<br/>transactions.csv"]
     end
 
-    subgraph ec2["EC2 t3.micro — Amazon Linux 2023"]
+    subgraph ec2["EC2 t2.micro — Amazon Linux 2023"]
         LOAD["portfolio-load<br/><i>one-shot systemd unit</i>"]
         RULES["32 validation rules<br/><i>pure functions, no DB</i>"]
         APP["gunicorn → Dash<br/><i>port 80</i>"]
@@ -131,7 +131,7 @@ be created. Rather than `IAMFullAccess`, attach the scoped policy in
 [`deploy/iam-policy.json`](deploy/iam-policy.json) — full instructions, including why
 this has to be done from the console as root, are in [`deploy/README.md`](deploy/README.md).
 
-**Cost.** Roughly **$22/month** total (RDS ~$14.40, EC2 t3.micro ~$7.50). This account
+**Cost.** Roughly **$22/month** total (RDS ~$14.40, EC2 t2.micro ~$8.50). This account
 is past the 12-month window, so none of it is free tier. `./deploy/ec2.sh teardown` and
 `./deploy/rds.sh teardown` remove everything.
 
@@ -341,8 +341,24 @@ also means these per-security impacts sum back into the portfolio's total price 
 ### Q5 — Data quality
 
 **71 findings from 11 rules** on this extract: 18 errors, 18 warnings, 35 informational.
-All of it is visible on the app's Data quality page, which reads `dq_finding` and holds
-no hardcoded content.
+**How the app surfaces them.** Everything below is rendered by the Data quality page,
+which reads the `dq_finding` table and holds no hardcoded content. It presents the same
+findings four ways, because different anomalies need different scrutiny:
+
+| Where | What it shows |
+|---|---|
+| Severity tiles | Error / warning / info counts, and how many of the 32 rules fired |
+| *Findings by rule* | Count per rule, coloured by severity, with a sortable table beneath |
+| *Values changed during loading* | Every repair, with the **delivered value beside the value actually used** — the rows carrying the most obligation to be auditable |
+| *Rows excluded or deduplicated* | Every row dropped, with the reason, since excluding a row removes real notional |
+| *All findings* | The full list with each record's business key and the rule's own explanation |
+
+Two anomaly classes also surface outside that page. A price the scale rule repaired is
+flagged `clean_price_repaired` and, on the **security drill-down**, an observation whose
+price was inferred rather than delivered is drawn as a hollow ring rather than a solid
+marker — so an inferred point can never be misread as an observed one. And post-maturity
+positions are excluded from every aggregate on the **overview** and **allocation** pages,
+with the excluded market value reported in the finding itself.
 
 | Rule | Anomaly | How detected | How handled | n |
 |---|---|---|---|---|
@@ -495,19 +511,41 @@ well-reasoned assumption you disagree with should be easy to locate and argue wi
 20. **The app reads only from the latest `SUCCEEDED` load**, so a failed load cannot
     serve partial data.
 
+### Reading of the brief
+
+These are places where a requirement admitted more than one reading, so the reading
+taken is stated rather than assumed to be obvious.
+
+21. **"Python only for all application code" is read as *application* code.** All 32
+    application modules are Python. The two exceptions are deliberate: one CSS file,
+    which is how a Dash app is styled and has no Python equivalent, and the two
+    deployment shell scripts under `deploy/`. Those are infrastructure rather than
+    application code, and bash calling the AWS CLI is both shorter and easier to audit
+    than boto3 equivalents would be. If the requirement is meant to exclude shell
+    entirely, the scripts are the only thing to rewrite — no application behaviour
+    depends on them.
+22. **"Fit comfortably in the AWS free tier" is read as a property of the resource
+    choices, not of this particular bill.** `db.t4g.micro` and `t2.micro` are both
+    free-tier-eligible, and 20GB gp3 is within the 20GB RDS allowance — so on a
+    new account the setup is free. This account is past its first 12 months, so the
+    same resources are billed at roughly $22/month. Worth noting that the EC2 free
+    tier covers t2.micro *or* t3.micro "depending on region": t2.micro is available in
+    us-east-1, so t2.micro is the free-tier type here and `t3.micro` would be billed
+    even on a new account. The scripts default to `t2.micro` for that reason.
+
 ### Known limitations
 
-21. **No CI.** The 136 tests run locally and nothing verifies them on push. This is a gap
+23. **No CI.** The 136 tests run locally and nothing verifies them on push. This is a gap
     worth closing.
-22. **Dark mode is implemented and tested but has no UI toggle.** Templates and tokens
+24. **Dark mode is implemented and tested but has no UI toggle.** Templates and tokens
     exist for both modes; there is no control to switch.
-23. **Verified end to end on RDS PostgreSQL 18**, not only SQLite. The deployed load
+25. **Verified end to end on RDS PostgreSQL 18**, not only SQLite. The deployed load
     produced identical results to local — 1856 raw rows, 1845 curated, 71 findings — so
     `NUMERIC`, `JSONB` and `BIGSERIAL` all round-trip correctly. The test suite still
     runs on SQLite via dialect variants, so it needs no server.
-24. **`dash_table` is deprecated** in favour of `dash-ag-grid`. It works; swapping it was
+26. **`dash_table` is deprecated** in favour of `dash-ag-grid`. It works; swapping it was
     not judged worth the churn.
-25. **Single instance, no autoscaling, no TLS.** The brief explicitly permits plain HTTP
+27. **Single instance, no autoscaling, no TLS.** The brief explicitly permits plain HTTP
     and a bare IP. Production would want a certificate and a load balancer.
 
 ---
