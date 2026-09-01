@@ -40,7 +40,12 @@ DB_INSTANCE_ID="${DB_INSTANCE_ID:-${PROJECT}-db}"
 ROLE_NAME="${ROLE_NAME:-${PROJECT}-app-role}"
 PROFILE_NAME="${PROFILE_NAME:-${PROJECT}-app-profile}"
 SG_NAME="${SG_NAME:-${PROJECT}-app-sg}"
-INSTANCE_TYPE="${INSTANCE_TYPE:-t3.micro}"
+# t2.micro, not t3.micro. The assignment requires the setup to fit comfortably in
+# the AWS free tier, and the EC2 free tier is 750 hours of t2.micro *or* t3.micro
+# "depending on region" — t3.micro only where t2.micro is unavailable. t2.micro is
+# offered in us-east-1, so t2.micro is the free-tier type here and t3.micro would
+# be billed. Same 1 GiB of memory either way.
+INSTANCE_TYPE="${INSTANCE_TYPE:-t2.micro}"
 APP_PORT="${APP_PORT:-80}"
 REPO_URL="${REPO_URL:-https://github.com/lessouffrances/fixed-income-portfolio-analytics.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
