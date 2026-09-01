@@ -344,3 +344,35 @@ def test_signed_money_shows_direction():
 def test_pct_formatting():
     assert pct(12.345, 2) == "12.35%"
     assert pct(None) == "—"
+
+
+# ---------------------------------------------------------------------------
+# The gunicorn entry point
+# ---------------------------------------------------------------------------
+
+
+def test_misconfigured_server_reports_the_reason_instead_of_being_none():
+    """gunicorn resolves portfolio.app.main:server at import. If that were None it
+    would fail with "application object must be callable", which says nothing
+    about the cause. A WSGI app that 503s with the real message means the process
+    starts and the logs name the actual problem."""
+    from portfolio.app.main import _misconfigured_server
+
+    app = _misconfigured_server("DATABASE_URL is not set")
+    captured = {}
+
+    def start_response(status, headers):
+        captured["status"] = status
+        captured["headers"] = dict(headers)
+
+    body = b"".join(app({}, start_response))
+    assert captured["status"].startswith("503")
+    assert b"DATABASE_URL is not set" in body
+    assert captured["headers"]["Content-Type"] == "text/plain"
+
+
+def test_server_attribute_is_always_callable(monkeypatch):
+    """Whatever the configuration state, the gunicorn target must be callable."""
+    import portfolio.app.main as main_mod
+
+    assert callable(main_mod.server) or hasattr(main_mod.server, "__call__")

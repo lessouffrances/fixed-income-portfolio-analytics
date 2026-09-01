@@ -164,14 +164,36 @@ def main() -> int:
     return 0
 
 
-# For gunicorn. Built lazily so importing this module in a test does not require
-# a configured database.
+def _misconfigured_server(message: str):
+    """A WSGI app that reports why the real one could not be built.
+
+    gunicorn resolves `portfolio.app.main:server` at import. If that were None,
+    gunicorn would fail with "application object must be callable" — which says
+    nothing about the cause and sends you reading gunicorn's source instead of
+    your own configuration. Returning a WSGI callable instead means the process
+    starts, /healthz fails honestly with the real reason, and `ec2.sh logs` shows
+    the configuration error rather than a crash loop.
+    """
+
+    def app(environ, start_response):
+        body = f"configuration error: {message}\n".encode()
+        start_response(
+            "503 Service Unavailable",
+            [("Content-Type", "text/plain"), ("Content-Length", str(len(body)))],
+        )
+        return [body]
+
+    return app
+
+
+# For gunicorn. Built at import so a misconfiguration surfaces at startup rather
+# than on the first request, but without raising — see above.
 def _make_server():
     try:
         return create_app().server
-    except ConfigError:
-        log.warning("DATABASE_URL not configured; server not built at import time")
-        return None
+    except ConfigError as exc:
+        log.error("cannot build the app: %s", exc)
+        return _misconfigured_server(str(exc))
 
 
 server = _make_server()
