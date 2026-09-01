@@ -6,6 +6,7 @@
 #   ./deploy/ec2.sh status       instance state and the public URL
 #   ./deploy/ec2.sh url          just the URL, for scripting
 #   ./deploy/ec2.sh logs         tail the app's journal over SSM (no SSH)
+#   ./deploy/ec2.sh console      serial console output; SSM-free fallback
 #   ./deploy/ec2.sh redeploy     pull latest code and restart, over SSM
 #   ./deploy/ec2.sh teardown     delete the instance, security group and role
 #
@@ -347,6 +348,21 @@ cmd_logs() {
   _ssm_run "journalctl -u app.service -u app-load.service -n 60 --no-pager"
 }
 
+cmd_console() {
+  # SSM-free fallback. The serial console carries cloud-init and user-data output,
+  # which is where a failed bootstrap shows up, and reading it needs only
+  # ec2:GetConsoleOutput — granted by AmazonEC2FullAccess. Use this when SSM
+  # permissions are not in place, or when the instance never got far enough to
+  # register with SSM at all (which is exactly when bootstrap failed).
+  require_aws
+  local id; id="$(instance_id)"
+  [[ "$id" == "None" ]] && die "no instance found"
+  log "serial console output for $id (bootstrap log lives here)"
+  aws ec2 get-console-output --region "$REGION" --instance-id "$id" \
+    --query 'Output' --output text 2>/dev/null | tail -80 \
+    || warn "no console output yet; it can take 3-4 minutes to appear after launch"
+}
+
 cmd_redeploy() {
   require_aws
   log "pulling latest $REPO_BRANCH and restarting"
@@ -399,10 +415,11 @@ case "${1:-}" in
   status)    cmd_status ;;
   url)       cmd_url ;;
   logs)      cmd_logs ;;
+  console)   cmd_console ;;
   redeploy)  cmd_redeploy ;;
   teardown)  cmd_teardown ;;
   *)
-    sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
     ;;
 esac
